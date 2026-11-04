@@ -1,4 +1,5 @@
-import google.generativeai as genai
+import json
+import requests
 import streamlit as st
 from pypdf import PdfReader
 
@@ -23,11 +24,8 @@ if not api_key:
     st.warning("Please enter your Gemini API key in the sidebar to continue.")
     st.stop()
 
-# Configure the stable Gemini SDK
-genai.configure(api_key=api_key)
 
-
-# --- Helper Function ---
+# --- Helper Function to Extract PDF ---
 def extract_text_from_pdf(pdf_file) -> str:
     try:
         reader = PdfReader(pdf_file)
@@ -89,14 +87,26 @@ if st.button("Generate Leaderboard 🚀", type="primary"):
             for i, cv in enumerate(cv_data):
                 prompt += f"\n\n--- CANDIDATE {i+1} (Filename: {cv['filename']}) ---\n{cv['text'][:10000]}"
 
-            try:
-                # Use the reliable Gemini 1.5 Flash model via the stable SDK
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(prompt)
+            # Direct API call via requests (Bypasses Python 3.14 package bugs completely)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
-                st.markdown("---")
-                st.subheader("🎯 Top Candidates Leaderboard")
-                st.markdown(response.text)
+            try:
+                response = requests.post(
+                    url, headers=headers, data=json.dumps(payload)
+                )
+                result_json = response.json()
+
+                if "candidates" in result_json:
+                    output_text = result_json["candidates"][0]["content"][
+                        "parts"
+                    ][0]["text"]
+                    st.markdown("---")
+                    st.subheader("🎯 Top Candidates Leaderboard")
+                    st.markdown(output_text)
+                else:
+                    st.error(f"API Error: {result_json}")
 
             except Exception as e:
                 st.error(f"An error occurred while communicating with Gemini: {e}")
