@@ -92,8 +92,8 @@ if st.button("Generate Leaderboard 🚀", type="primary"):
             for i, cv in enumerate(cv_data):
                 prompt += f"\n\n--- CANDIDATE {i+1} (Filename: {cv['filename']}) ---\n{cv['text'][:10000]}"
 
-            # Koristimo novi, aktivni gemini-2.0-flash model
-            url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={api_key}"
+            # Koristimo najnoviji gemini-3.8-flash model koji je Google sada propisao
+            url = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key={api_key}"
             payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             
             req = urllib.request.Request(
