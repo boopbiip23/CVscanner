@@ -1,5 +1,5 @@
+import google.generativeai as genai
 import streamlit as st
-import google.genai as genai
 from pypdf import PdfReader
 
 # --- App Configuration ---
@@ -20,12 +20,83 @@ if not api_key:
     )
 
 if not api_key:
-    st.warning(
-        "Please enter your Gemini API key in the sidebar to continue (or set it in app secrets)."
-    )
+    st.warning("Please enter your Gemini API key in the sidebar to continue.")
     st.stop()
 
-# Initialize the Gemini client using the updated import method
-client = genai.Client(api_key=api_key)
+# Configure the stable Gemini SDK
+genai.configure(api_key=api_key)
 
-# (Keep the rest of your app.py code below this unchanged...)
+
+# --- Helper Function ---
+def extract_text_from_pdf(pdf_file) -> str:
+    try:
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text
+    except Exception as e:
+        return f"Error reading PDF: {e}"
+
+
+# --- User Inputs ---
+job_description = st.text_area(
+    "1. What kind of job do you need filled?",
+    placeholder="e.g., Senior Python Developer with 5+ years experience...",
+    height=100,
+)
+
+uploaded_files = st.file_uploader(
+    "2. Upload CVs (PDFs)", type=["pdf"], accept_multiple_files=True
+)
+
+# --- Processing & Leaderboard ---
+if st.button("Generate Leaderboard 🚀", type="primary"):
+    if not job_description:
+        st.error("Please enter the job requirements.")
+    elif not uploaded_files:
+        st.error("Please upload at least one CV.")
+    else:
+        with st.spinner("Analyzing and ranking CVs... Please wait."):
+            cv_data = []
+
+            for file in uploaded_files:
+                text = extract_text_from_pdf(file)
+                cv_data.append({"filename": file.name, "text": text})
+
+            prompt = f"""
+            You are an expert HR recruiter. 
+            I am looking to fill the following job role:
+            ---
+            {job_description}
+            ---
+
+            Below are the contents of {len(cv_data)} candidate CVs. 
+            Analyze all of them, evaluate how well they match the job requirements, and select ONLY the TOP 3 to 4 best candidates.
+
+            Return the results as a strict leaderboard (Number 1 being the absolute best).
+
+            For each of the top 3-4 candidates, provide:
+            1. Rank (#1, #2, #3, #4)
+            2. Candidate Name/Filename
+            3. Match Score (out of 100)
+            4. A short justification of why they are a great fit (strengths).
+            5. One potential weakness or missing skill based on the job description.
+
+            Here are the CVs:
+            """
+
+            for i, cv in enumerate(cv_data):
+                prompt += f"\n\n--- CANDIDATE {i+1} (Filename: {cv['filename']}) ---\n{cv['text'][:10000]}"
+
+            try:
+                # Use the reliable Gemini 1.5 Flash model via the stable SDK
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(prompt)
+
+                st.markdown("---")
+                st.subheader("🎯 Top Candidates Leaderboard")
+                st.markdown(response.text)
+
+            except Exception as e:
+                st.error(f"An error occurred while communicating with Gemini: {e}")
