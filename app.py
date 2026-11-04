@@ -25,21 +25,19 @@ if not api_key:
     st.stop()
 
 
-# --- Simple Pure-Python PDF Text Extractor (No libraries needed) ---
+# --- Simple Pure-Python PDF Text Extractor ---
 def extract_text_from_pdf(pdf_file) -> str:
     try:
         content = pdf_file.read()
-        # Traži sve tekstualne objekte unutar PDF bajtova
         text = ""
         for line in content.split(b"\n"):
             if b"(" in line and b")" in line:
                 try:
-                    # Izvlači čitljivi tekst iz PDF streamova
                     decoded = line.decode("latin1", errors="ignore")
                     text += decoded + " "
                 except:
                     pass
-        return text if len(text) > 50 else "Tekst iz PDF-a (skeniran dokument)"
+        return text if len(text) > 50 else "Sadržaj CV-a iz PDF-a"
     except Exception as e:
         return f"Error reading PDF: {e}"
 
@@ -94,8 +92,8 @@ if st.button("Generate Leaderboard 🚀", type="primary"):
             for i, cv in enumerate(cv_data):
                 prompt += f"\n\n--- CANDIDATE {i+1} (Filename: {cv['filename']}) ---\n{cv['text'][:10000]}"
 
-            # Direktni HTTP poziv preko ugrađenog urllib-a (Nema pip instalacija, nema gresaka)
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            # Ispravljen URL za Gemini API
+            url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
             payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
             
             req = urllib.request.Request(
@@ -118,6 +116,7 @@ if st.button("Generate Leaderboard 🚀", type="primary"):
                         st.error(f"API Error: {result_json}")
 
             except urllib.error.HTTPError as e:
-                st.error(f"HTTP Error: {e.code} - {e.reason}")
+                error_message = e.read().decode("utf-8")
+                st.error(f"HTTP Error {e.code}: {error_message}")
             except Exception as e:
                 st.error(f"An error occurred: {e}")
