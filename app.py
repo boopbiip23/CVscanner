@@ -1,5 +1,26 @@
+import os
+import subprocess
+import sys
+
+
+# Auto-install missing dependencies if Streamlit ignores requirements.txt
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+
+try:
+    import pypdf
+except ImportError:
+    install("pypdf")
+    import pypdf
+
+try:
+    import requests
+except ImportError:
+    install("requests")
+    import requests
+
 import json
-import requests
 import streamlit as st
 from pypdf import PdfReader
 
@@ -87,7 +108,7 @@ if st.button("Generate Leaderboard 🚀", type="primary"):
             for i, cv in enumerate(cv_data):
                 prompt += f"\n\n--- CANDIDATE {i+1} (Filename: {cv['filename']}) ---\n{cv['text'][:10000]}"
 
-            # Direct API call via requests (Bypasses Python 3.14 package bugs completely)
+            # Direct API call via requests (Bypasses all Google SDK & Python version bugs)
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
